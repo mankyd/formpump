@@ -36,14 +36,20 @@ class JinjaPump(Extension):
         Extension.__init__(self, environment)
         environment.extend(
             default_form_action = '',
-            error_renderers = {'default': self._default_error},
-            form_vars = {},
-            form_errors = {},
-            form_name_key = None,
+            error_renderers     = {'default': self._default_error},
+            value_dict_name     = 'form_vars',
+            error_dict_name     = 'form_errors',
+            form_name_key       = None,
             )
         self.form_name = None
         self.inputless_labels = {}
         self.labeless_inputs = {}
+
+    def _form_vars_node(self):
+        return nodes.Or(nodes.Name(self.environment.value_dict_name, 'load'), nodes.Dict([]))
+    
+    def _form_errors_node(self):
+        return nodes.Or(nodes.Name(self.environment.error_dict_name, 'load'), nodes.Dict([]))
 
     def parse(self, parser):
         tag = parser.stream.next()
@@ -185,17 +191,17 @@ class JinjaPump(Extension):
         
         attrs = nodes.Dict([nodes.Pair(nodes.Const(k), v) for k,v in attrs.items()])
 
-        return nodes.Output([self.call_method(method_name, args=[attrs])])
+        return nodes.Output([self.call_method(method_name, args=[self._form_vars_node(), self._form_errors_node(), attrs])])
 
-    def input_tag(self, attrs):
+    def input_tag(self, form_vars, form_errors, attrs):
         html_id = self._assign_label_to_tag(attrs)
         if html_id is not None:
             attrs['id'] = html_id
 
         name = attrs.get('name', None)
         if name is not None:
-            attrs['value'] = self.environment.form_vars.get(self.form_name, {}).get(name, '')
-            error = self.environment.form_errors.get(self.form_name, {}).get(name, None)
+            attrs['value'] = form_vars.get(self.form_name, {}).get(name, '')
+            error = form_errors.get(self.form_name, {}).get(name, None)
             if error is not None:
                 if 'class' in attrs:
                     attrs['class'] = 'error ' + attrs['class']
@@ -207,30 +213,44 @@ class JinjaPump(Extension):
     def _check(self, parser, tag):
         return self._input(parser, tag, method_name='check_tag')
 
-    def check_tag(self, attrs):
+    def check_tag(self, form_vars, form_errors, attrs):
         name = attrs.get('name', None)
         attrs.setdefault('value', '1')
         true_values = ('1', 't', 'true', 'y', 'yes', 'on')
         if name is not None:
-            value = self.environment.form_vars.get(self.form_name, {}).get(name, '')
+            value = form_vars.get(self.form_name, {}).get(name, '')
             if value == attrs['value'] or unicode(value).lower() in true_values and unicode(attrs['value']).lower() in true_values:
                 attrs['checked'] = 'checked'
             else:
                 attrs.pop('checked', None)
+
+            error = form_errors.get(self.form_name, {}).get(name, None)
+            if error:
+                if 'class' in attrs:
+                    attrs['class'] = 'error ' + attrs['class']
+                else:
+                    attrs['class'] = 'error'
 
         return self.build_tag('input', attrs)
 
     def _radio(self, parser, tag):
         return self._input(parser, tag, method_name='radio_tag')
 
-    def radio_tag(self, attrs):
+    def radio_tag(self, form_vars, form_errors, attrs):
         name = attrs.get('name', None)
         if name is not None:
-            value = self.environment.form_vars.get(self.form_name, {}).get(name, '')
+            value = form_vars.get(self.form_name, {}).get(name, '')
             if value == attrs.get('value', None):
                 attrs['checked'] = 'checked'
             else:
                 attrs.pop('checked', None)
+
+            error = form_errors.get(self.form_name, {}).get(name, None)
+            if error:
+                if 'class' in attrs:
+                    attrs['class'] = 'error ' + attrs['class']
+                else:
+                    attrs['class'] = 'error'
 
         return self.build_tag('input', attrs)
 
@@ -243,7 +263,7 @@ class JinjaPump(Extension):
 
         attrs = nodes.Dict([nodes.Pair(nodes.Const(k), v) for k,v in attrs.items()])
 
-        return nodes.Output([self.call_method('input_tag', args=[attrs])])
+        return nodes.Output([self.call_method('input_tag', args=[self._form_vars_node(), self._form_errors_node(), attrs])])
 
     def _label(self, parser, tag):
         label_for, attrs = self._parse_attrs(parser)
@@ -271,13 +291,13 @@ class JinjaPump(Extension):
 
         attrs = nodes.Dict([nodes.Pair(nodes.Const(k), v) for k,v in attrs.items()])
 
-        return [nodes.Output([self.call_method('quick_select_tag', args=[attrs])])]
+        return [nodes.Output([self.call_method('quick_select_tag', args=[self._form_vars_node(), self._form_errors_node(), attrs])])]
 
-    def quick_select_tag(self, attrs):
+    def quick_select_tag(self, form_vars, form_errors, attrs):
         options = attrs.pop('options', [])[:]
         prompt = attrs.pop('prompt', None)
         name = attrs.get('name', None)
-        error = self.environment.form_errors.get(self.form_name, {}).get(name, None)
+        error = form_errors.get(self.form_name, {}).get(name, None)
         if error is not None:
             if 'class' in attrs:
                 attrs['class'] = 'error ' + attrs['class']
@@ -288,7 +308,7 @@ class JinjaPump(Extension):
         if prompt:
             options.insert(0, (None, prompt))
 
-        value = self.environment.form_vars.get(self.form_name, {}).get(name, '')
+        value = form_vars.get(self.form_name, {}).get(name, '')
         for opt in options:
             attrs = {'value': opt[0]}
             if unicode(value) == unicode(opt[0]):
@@ -303,9 +323,9 @@ class JinjaPump(Extension):
             attrs['name'] = name
 
         attrs = nodes.Dict([nodes.Pair(nodes.Const(k), v) for k,v in attrs.items()])
-        return [nodes.Output([self.call_method('text_area_tag', args=[attrs])])]
+        return [nodes.Output([self.call_method('text_area_tag', args=[self._form_vars_node(), self._form_errors_node(), attrs])])]
 
-    def text_area_tag(self, attrs):
+    def text_area_tag(self, form_vars, form_errors, attrs):
         html_id = self._assign_label_to_tag(attrs)
         if html_id is not None:
             attrs['id'] = html_id
@@ -313,8 +333,8 @@ class JinjaPump(Extension):
         name = attrs.get('name', None)
         value = ''
         if name is not None:
-            value = self.environment.form_vars.get(self.form_name, {}).get(name, '')
-            error = self.environment.form_errors.get(self.form_name, {}).get(name, None)
+            value = form_vars.get(self.form_name, {}).get(name, '')
+            error = form_errors.get(self.form_name, {}).get(name, None)
             if error is not None:
                 if 'class' in attrs:
                     attrs['class'] = 'error ' + attrs['class']
@@ -333,10 +353,10 @@ class JinjaPump(Extension):
 
         attrs = nodes.Dict([nodes.Pair(nodes.Const(k), v) for k,v in attrs.items()])
 
-        return nodes.Output([self.call_method('field_error_tag', args=[name, attrs])])
+        return nodes.Output([self.call_method('field_error_tag', args=[name, self._form_errors_node(), attrs])])
 
-    def field_error_tag(self, name, attrs):
-        error = self.environment.form_errors.get(self.form_name, {}).get(name, None)
+    def field_error_tag(self, name, form_errors, attrs):
+        error = form_errors.get(self.form_name, {}).get(name, None)
         if not error:
             return ''
 
