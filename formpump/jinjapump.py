@@ -40,6 +40,7 @@ class JinjaPump(Extension):
             value_dict_name     = 'form_vars',
             error_dict_name     = 'form_errors',
             form_name_key       = None,
+            form_ctx_key        = None,
             )
         self.form_name = None
         self.inputless_labels = {}
@@ -177,7 +178,17 @@ class JinjaPump(Extension):
     def _form_ctx(self, parser, tag):
         form_name = parser.parse_expression()
 
-        return [nodes.ExprStmt(self.call_method('_switch_form_name', args=[form_name]))]
+        ret = [nodes.ExprStmt(self.call_method('_switch_form_name', args=[form_name]))]
+        if self.environment.form_ctx_key is not None:
+            attrs = {
+                'type'  : nodes.Const('hidden'),
+                'name'  : nodes.Const(self.environment.form_ctx_key),
+                'value' : form_name,
+                }
+            attrs = nodes.Dict([nodes.Pair(nodes.Const(k), v) for k,v in attrs.items()])
+            ret.append(nodes.Output([self.call_method('input_tag', args=[self._form_vars_node(), self._form_errors_node(), attrs])]))
+
+        return ret
 
     def _switch_form_name(self, form_name):
         self.form_name = form_name
@@ -200,7 +211,7 @@ class JinjaPump(Extension):
 
         name = attrs.get('name', None)
         if name is not None:
-            attrs['value'] = form_vars.get(self.form_name, {}).get(name, '')
+            attrs['value'] = form_vars.get(self.form_name, {}).get(name, attrs.get('value', ''))
             error = form_errors.get(self.form_name, {}).get(name, None)
             if error is not None:
                 if 'class' in attrs:
