@@ -1,10 +1,9 @@
 "FormPump - It fills up forms"
 
-import cgi
 from jinja2 import Environment, environmentfunction, nodes
 from jinja2.ext import Extension
-from random import Random
-import string
+
+from base import Form, StubForm
 
 def pumpwidget(func):
     @environmentfunction
@@ -36,15 +35,13 @@ class JinjaPump(Extension):
         Extension.__init__(self, environment)
         environment.extend(
             default_form_action = '',
-            error_renderers     = {'default': self._default_error},
+            error_renderers     = {},
             value_dict_name     = 'form_vars',
             error_dict_name     = 'form_errors',
             form_name_key       = None,
             form_ctx_key        = None,
             )
-        self.form_name = None
-        self.inputless_labels = {}
-        self.labeless_inputs = {}
+        self.form = StubForm()
 
     def _form_vars_node(self):
         return nodes.Or(nodes.Name(self.environment.value_dict_name, 'load'), nodes.Dict([]))
@@ -76,30 +73,6 @@ class JinjaPump(Extension):
         elif tag.value == 'error':
             return self._field_error(parser)
 
-    def html_id(self):
-        source = string.letters+string.digits
-        return u''.join( [Random().sample(source, 1)[0] for x in range(0, 32)] )
-
-    def build_tag(self, tag, attrs, close=True):
-        if attrs.get('name', None) is not None and not 'id' in attrs:
-            name = attrs['name']
-            if len(self.inputless_labels.get(name,[])) != 0:
-                html_id = self.inputless_labels[name].pop(0)
-            else:
-                html_id = self.html_id()
-                self.labeless_inputs.setdefault(name, [])
-                self.labeless_inputs[name].append(html_id)
-            attrs['id'] = html_id
-
-
-        tag = '<' + cgi.escape(tag)
-        for k,v in attrs.items():
-            tag += ' %s="%s"' % (cgi.escape(k), cgi.escape(unicode(v if v is not None else '')))
-
-        if close:
-            return tag +' />'
-        return tag + '>'
-
     def _parse_attrs(self, parser, add_id=True):
         name = None
         if parser.stream.current.test('string'):
@@ -116,31 +89,6 @@ class JinjaPump(Extension):
 
         return (name, attrs)
 
-    def _assign_label_to_tag(self, attrs):
-        if attrs.get('name', None) is not None and not 'id' in attrs:
-            name = attrs['name']
-            if len(self.inputless_labels.get(name,[])) != 0:
-                html_id = self.inputless_labels[name].pop(0)
-            else:
-                html_id = self.html_id()
-                self.labeless_inputs.setdefault(name, [])
-                self.labeless_inputs[name].append(html_id)
-            return html_id
-
-        return None
-
-    def _assign_tag_to_label(self, label_for, attrs):
-        if label_for is not None and not 'id' in attrs :
-            if len(self.labeless_inputs.get(label_for, [])) != 0:
-                for_id = self.labeless_inputs[label_for].pop(0)
-            else:
-                for_id = self.html_id()
-                self.inputless_labels.setdefault(label_for, [])
-                self.inputless_labels[label_for].append(for_id)
-            return for_id
-
-        return None
-
     def _form(self, parser, tag):
         form_name, attrs = self._parse_attrs(parser)
 
@@ -149,49 +97,30 @@ class JinjaPump(Extension):
         body = parser.parse_statements(['name:endform'], drop_needle=True)
 
         attrs = nodes.Dict([nodes.Pair(nodes.Const(k), v) for k,v in attrs.items()])
-        return [nodes.Output([self.call_method('form_tag', args=[form_name, attrs])]),
-                nodes.CallBlock(self.call_method('_form_block', args=[form_name]),
-                                [], [], body).set_lineno(tag.lineno),
-                nodes.Output([nodes.MarkSafe(nodes.Const('</form>'))])]
+        return [nodes.CallBlock(self.call_method('_form_block', args=[form_name, attrs, self._form_vars_node(), self._form_errors_node()]),
+                                [], [], body).set_lineno(tag.lineno)]
 
-    def form_tag(self, form_name, attrs):
-        attrs.setdefault('method', 'post')
-        attrs.setdefault('action', self.environment.default_form_action() if callable(self.environment.default_form_action) else self.environment.default_form_action)
-        ret = self.build_tag('form', attrs, close=False)
-
-        if form_name is not None and self.environment.form_name_key is not None:
-            return ret + '<input type="hidden" name="%s" value="%s" />' % (cgi.escape(self.environment.form_name_key), cgi.escape(form_name))
-
-        return ret
-
-    def _form_block(self, form_name, caller):
-        form_name, self.form_name = self.form_name, form_name
-        il, self.inputless_labels = self.inputless_labels, {}
-        li, self.labeless_inputs = self.labeless_inputs, {}
+    def _form_block(self, form_name, attrs, form_vars, form_errors, caller):
+        form = Form(form_name, 
+                    self.environment.form_name_key, 
+                    self.environment.form_ctx_key,
+                    attrs, 
+                    self.environment.default_form_action,
+                    form_vars,
+                    form_errors)
+        form, self.form = self.form, form
         ret = caller()
-        self.form_name = form_name
-        self.inputless_labels = il
-        self.labeless_inputs = li
-
-        return ret
+        form, self.form = self.form, form
+        return form.start_tag() + ret + form.end_tag()
 
     def _form_ctx(self, parser, tag):
-        form_name = parser.parse_expression()
+        name, attrs = self._parse_attrs(parser)
+        attrs = nodes.Dict([nodes.Pair(nodes.Const(k), v) for k,v in attrs.items()])
 
-        ret = [nodes.ExprStmt(self.call_method('_switch_form_name', args=[form_name]))]
-        if self.environment.form_ctx_key is not None:
-            attrs = {
-                'type'  : nodes.Const('hidden'),
-                'name'  : nodes.Const(self.environment.form_ctx_key),
-                'value' : form_name,
-                }
-            attrs = nodes.Dict([nodes.Pair(nodes.Const(k), v) for k,v in attrs.items()])
-            ret.append(nodes.Output([self.call_method('input_tag', args=[self._form_vars_node(), self._form_errors_node(), attrs])]))
+        return nodes.Output([self.call_method('_switch_form_ctx', args=[name, attrs])])
 
-        return ret
-
-    def _switch_form_name(self, form_name):
-        self.form_name = form_name
+    def _switch_form_ctx(self, form_ctx, attrs):
+        return self.form.change_context(form_ctx, attrs)
 
     def _input(self, parser, tag, method_name='input_tag'):
         name, attrs = self._parse_attrs(parser)
@@ -202,68 +131,22 @@ class JinjaPump(Extension):
         
         attrs = nodes.Dict([nodes.Pair(nodes.Const(k), v) for k,v in attrs.items()])
 
-        return nodes.Output([self.call_method(method_name, args=[self._form_vars_node(), self._form_errors_node(), attrs])])
+        return nodes.Output([self.call_method(method_name, args=[attrs])])
 
-    def input_tag(self, form_vars, form_errors, attrs):
-        html_id = self._assign_label_to_tag(attrs)
-        if html_id is not None:
-            attrs['id'] = html_id
-
-        name = attrs.get('name', None)
-        if name is not None:
-            attrs['value'] = form_vars.get(self.form_name, {}).get(name, attrs.get('value', ''))
-            error = form_errors.get(self.form_name, {}).get(name, None)
-            if error is not None:
-                if 'class' in attrs:
-                    attrs['class'] = 'error ' + attrs['class']
-                else:
-                    attrs['class'] = 'error'
-
-        return self.build_tag('input', attrs)
+    def input_tag(self, attrs):
+        return self.form.input_tag(attrs)
 
     def _check(self, parser, tag):
         return self._input(parser, tag, method_name='check_tag')
 
-    def check_tag(self, form_vars, form_errors, attrs):
-        name = attrs.get('name', None)
-        attrs.setdefault('value', '1')
-        true_values = ('1', 't', 'true', 'y', 'yes', 'on')
-        if name is not None:
-            value = form_vars.get(self.form_name, {}).get(name, '')
-            if value == attrs['value'] or unicode(value).lower() in true_values and unicode(attrs['value']).lower() in true_values:
-                attrs['checked'] = 'checked'
-            else:
-                attrs.pop('checked', None)
-
-            error = form_errors.get(self.form_name, {}).get(name, None)
-            if error:
-                if 'class' in attrs:
-                    attrs['class'] = 'error ' + attrs['class']
-                else:
-                    attrs['class'] = 'error'
-
-        return self.build_tag('input', attrs)
+    def check_tag(self, attrs):
+        return self.form.check_tag(attrs)
 
     def _radio(self, parser, tag):
         return self._input(parser, tag, method_name='radio_tag')
 
-    def radio_tag(self, form_vars, form_errors, attrs):
-        name = attrs.get('name', None)
-        if name is not None:
-            value = form_vars.get(self.form_name, {}).get(name, '')
-            if value == attrs.get('value', None):
-                attrs['checked'] = 'checked'
-            else:
-                attrs.pop('checked', None)
-
-            error = form_errors.get(self.form_name, {}).get(name, None)
-            if error:
-                if 'class' in attrs:
-                    attrs['class'] = 'error ' + attrs['class']
-                else:
-                    attrs['class'] = 'error'
-
-        return self.build_tag('input', attrs)
+    def radio_tag(self, attrs):
+        return self.form.radio_tag(attrs)
 
     def _submit(self, parser, tag):
         name, attrs = self._parse_attrs(parser)
@@ -274,7 +157,7 @@ class JinjaPump(Extension):
 
         attrs = nodes.Dict([nodes.Pair(nodes.Const(k), v) for k,v in attrs.items()])
 
-        return nodes.Output([self.call_method('input_tag', args=[self._form_vars_node(), self._form_errors_node(), attrs])])
+        return nodes.Output([self.call_method('input_tag', args=[attrs])])
 
     def _label(self, parser, tag):
         label_for, attrs = self._parse_attrs(parser)
@@ -286,14 +169,12 @@ class JinjaPump(Extension):
         body = parser.parse_statements(['name:endlabel'], drop_needle=True)
         attrs = nodes.Dict([nodes.Pair(nodes.Const(k), v) for k,v in attrs.items()])
 
-        return [nodes.Output([self.call_method('label_tag', args=[label_for, attrs])])] + body + [nodes.Output([nodes.MarkSafe(nodes.Const('</label>'))])]
+        return [nodes.CallBlock(self.call_method('_label_block', args=[label_for, attrs]),
+                                [], [], body).set_lineno(tag.lineno)]
 
-    def label_tag(self, label_for, attrs):
-        for_id = self._assign_tag_to_label(label_for, attrs)
-        if for_id is not None:
-            attrs['for'] = for_id
 
-        return self.build_tag('label', attrs, close=False)
+    def _label_block(self, label_for, attrs):
+        return self.form.label_tag(label_for, attrs) + caller() + self.form.end_label_tag()
 
     def _quick_select(self, parser, tag):
         name, attrs = self._parse_attrs(parser)
@@ -302,31 +183,10 @@ class JinjaPump(Extension):
 
         attrs = nodes.Dict([nodes.Pair(nodes.Const(k), v) for k,v in attrs.items()])
 
-        return [nodes.Output([self.call_method('quick_select_tag', args=[self._form_vars_node(), self._form_errors_node(), attrs])])]
+        return [nodes.Output([self.call_method('quick_select_tag', args=[attrs])])]
 
-    def quick_select_tag(self, form_vars, form_errors, attrs):
-        options = attrs.pop('options', [])[:]
-        prompt = attrs.pop('prompt', None)
-        name = attrs.get('name', None)
-        error = form_errors.get(self.form_name, {}).get(name, None)
-        if error is not None:
-            if 'class' in attrs:
-                attrs['class'] = 'error ' + attrs['class']
-            else:
-                attrs['class'] = 'error'
-
-        ret = self.build_tag('select', attrs, close=False)
-        if prompt:
-            options.insert(0, (None, prompt))
-
-        value = form_vars.get(self.form_name, {}).get(name, '')
-        for opt in options:
-            attrs = {'value': opt[0]}
-            if unicode(value) == unicode(opt[0]):
-                attrs['selected'] = 'selected'
-            ret += self.build_tag('option', attrs, close=False) + cgi.escape(opt[1]) + '</option>'
-
-        return ret + '</select>'
+    def quick_select_tag(self, attrs):
+        return self.form.quick_select_tag(attrs)
 
     def _text_area(self, parser, tag):
         name, attrs = self._parse_attrs(parser)
@@ -334,25 +194,10 @@ class JinjaPump(Extension):
             attrs['name'] = name
 
         attrs = nodes.Dict([nodes.Pair(nodes.Const(k), v) for k,v in attrs.items()])
-        return [nodes.Output([self.call_method('text_area_tag', args=[self._form_vars_node(), self._form_errors_node(), attrs])])]
+        return [nodes.Output([self.call_method('text_area_tag', args=[attrs])])]
 
-    def text_area_tag(self, form_vars, form_errors, attrs):
-        html_id = self._assign_label_to_tag(attrs)
-        if html_id is not None:
-            attrs['id'] = html_id
-
-        name = attrs.get('name', None)
-        value = ''
-        if name is not None:
-            value = form_vars.get(self.form_name, {}).get(name, '')
-            error = form_errors.get(self.form_name, {}).get(name, None)
-            if error is not None:
-                if 'class' in attrs:
-                    attrs['class'] = 'error ' + attrs['class']
-                else:
-                    attrs['class'] = 'error'
-
-        return '%s%s</textarea>' % (self.build_tag('textarea', attrs, close=False), cgi.escape(value or ''))
+    def text_area_tag(self, attrs):
+        return self.form.textarea_tag(attrs)
 
     def _field_error(self, parser):
         name, attrs = self._parse_attrs(parser)
@@ -364,26 +209,7 @@ class JinjaPump(Extension):
 
         attrs = nodes.Dict([nodes.Pair(nodes.Const(k), v) for k,v in attrs.items()])
 
-        return nodes.Output([self.call_method('field_error_tag', args=[name, self._form_errors_node(), attrs])])
+        return nodes.Output([self.call_method('field_error_tag', args=[name, attrs])])
 
-    def field_error_tag(self, name, form_errors, attrs):
-        error = form_errors.get(self.form_name, {}).get(name, None)
-        if not error:
-            return ''
-
-        renderer = self.environment.error_renderers.get(attrs['render'], None)
-        if renderer is None:
-            raise ValueError('Unknown error renderer: %s' % attrs['render'])
-
-        attrs.pop('render', None)
-
-        return renderer(error, attrs)
-
-    def _default_error(self, error, attrs):
-        if 'class' in attrs:
-            attrs['class'] = 'error-message '+attrs['class']
-        else:
-            attrs['class'] = 'error-message'
-
-        return self.build_tag('div', attrs, close=False) + unicode(error) + '</div>'
-
+    def field_error_tag(self, name, attrs):
+        return self.form.error_tag(self, name, attrs, self.environment.error_renderers)
