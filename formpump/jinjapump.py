@@ -115,12 +115,16 @@ class JinjaPump(Extension):
 
     def _form_ctx(self, parser, tag):
         name, attrs = self._parse_attrs(parser)
+
+        if name is not None:
+            attrs['name'] = name
+
         attrs = nodes.Dict([nodes.Pair(nodes.Const(k), v) for k,v in attrs.items()])
 
-        return nodes.Output([self.call_method('_switch_form_ctx', args=[name, attrs])])
+        return nodes.Output([self.call_method('_switch_form_ctx', args=[attrs])])
 
-    def _switch_form_ctx(self, form_ctx, attrs):
-        return self.form.change_context(form_ctx, attrs)
+    def _switch_form_ctx(self, attrs):
+        return self.form.context_tag(attrs)
 
     def _input(self, parser, tag, method_name='input_tag'):
         name, attrs = self._parse_attrs(parser)
@@ -137,10 +141,10 @@ class JinjaPump(Extension):
         return self.form.input_tag(attrs)
 
     def _check(self, parser, tag):
-        return self._input(parser, tag, method_name='check_tag')
+        return self._input(parser, tag, method_name='checkbox_tag')
 
-    def check_tag(self, attrs):
-        return self.form.check_tag(attrs)
+    def checkbox_tag(self, attrs):
+        return self.form.checkbox_tag(attrs)
 
     def _radio(self, parser, tag):
         return self._input(parser, tag, method_name='radio_tag')
@@ -151,7 +155,7 @@ class JinjaPump(Extension):
     def _submit(self, parser, tag):
         name, attrs = self._parse_attrs(parser)
         if name is not None:
-            attrs['value'] = name
+            attrs['name'] = name
 
         attrs['type'] = nodes.Const(tag.value)
 
@@ -160,21 +164,20 @@ class JinjaPump(Extension):
         return nodes.Output([self.call_method('input_tag', args=[attrs])])
 
     def _label(self, parser, tag):
-        label_for, attrs = self._parse_attrs(parser)
+        name, attrs = self._parse_attrs(parser)
 
-        if label_for is None and 'name' in attrs:
-            label_for = attrs['name']
-            del attrs['name']
+        if name is not None:
+            attrs['name'] = name
             
         body = parser.parse_statements(['name:endlabel'], drop_needle=True)
         attrs = nodes.Dict([nodes.Pair(nodes.Const(k), v) for k,v in attrs.items()])
 
-        return [nodes.CallBlock(self.call_method('_label_block', args=[label_for, attrs]),
+        return [nodes.CallBlock(self.call_method('_label_block', args=[attrs]),
                                 [], [], body).set_lineno(tag.lineno)]
 
 
-    def _label_block(self, label_for, attrs):
-        return self.form.label_tag(label_for, attrs) + caller() + self.form.end_label_tag()
+    def _label_block(self, attrs, caller):
+        return self.form.label_tag(attrs) + caller() + self.form.end_label_tag()
 
     def _quick_select(self, parser, tag):
         name, attrs = self._parse_attrs(parser)

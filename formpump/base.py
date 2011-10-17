@@ -38,24 +38,27 @@ class Form(object):
 
         tag = '<' + cgi.escape(tag)
         for k,v in attrs.items():
+            if k.endswith('_'):
+                k = k[:-1]
             tag += ' %s="%s"' % (cgi.escape(k), cgi.escape(unicode(v if v is not None else '')))
 
         if close:
             return tag +' />'
         return tag + '>'
 
-    def change_context(self, ctx_name, attrs):
-        self.name = ctx_name
-        if self.ctx_key or 'name' in attrs:
+    def context_tag(self, attrs):
+        self.name = attrs['name']
+        if self.ctx_key:
+            attrs['name'] = self.ctx_key
             attrs.setdefault('type', 'hidden')
-            attrs.setdefault('name', self.ctx_key)
-            attrs.setdefault('value', ctx_name)
+            attrs.setdefault('value', self.name)
 
             return self.build_tag('input', attrs)
 
         return ''
 
-    def check_tag(self, attrs):
+    def checkbox_tag(self, attrs):
+        attrs['type'] = 'checkbox'
         name = attrs.get('name', None)
         attrs.setdefault('value', '1')
         true_values = ('1', 't', 'true', 'y', 'yes', 'on')
@@ -74,6 +77,10 @@ class Form(object):
                     attrs['class'] = 'error'
 
         return self.build_tag('input', attrs)
+
+    def email_tag(self, attrs):
+        attrs['type'] = 'email'
+        return self.input_tag(attrs)
 
     def end_label_tag(self):
         return '</label>'
@@ -98,6 +105,10 @@ class Form(object):
 
         return renderer(error, attrs)
 
+    def hidden_tag(self, attrs):
+        attrs['type'] = 'hidden'
+        return self.input_tag(attrs)
+
     def html_id(self):
         source = string.letters+string.digits
         return u''.join( [Random().sample(source, 1)[0] for x in range(0, 32)] )
@@ -119,12 +130,17 @@ class Form(object):
 
         return self.build_tag('input', attrs)
 
-    def label_tag(self, label_for, attrs):
+    def label_tag(self, attrs):
+        label_for = attrs.pop('name', None)
         for_id = self._assign_tag_to_label(label_for, attrs)
         if for_id is not None:
             attrs['for'] = for_id
 
         return self.build_tag('label', attrs, close=False)
+
+    def password_tag(self, attrs):
+        attrs['type'] = 'password'
+        return self.input_tag(attrs)
 
     def quick_select_tag(self, attrs):
         options = attrs.pop('options', [])[:]
@@ -151,6 +167,7 @@ class Form(object):
         return ret + '</select>'
 
     def radio_tag(self, attrs):
+        attrs['type'] = 'radio'
         name = attrs.get('name', None)
         if name is not None:
             value = self.form_vars.get(self.name, {}).get(name, '')
@@ -168,6 +185,10 @@ class Form(object):
 
         return self.build_tag('input', attrs)
 
+    def submit_tag(self, attrs):
+        attrs['type'] = 'submit'
+        return self.input_tag(attrs)
+
     def start_tag(self):
         ret = self.build_tag('form', self.attrs, close=False)
 
@@ -176,6 +197,10 @@ class Form(object):
                                                   'name': self.name_key,
                                                   'value': self.name}, label=False)
         return ret
+
+    def text_tag(self, attrs):
+        attrs['type'] = 'text'
+        return self.input_tag(attrs)
 
     def textarea_tag(self, attrs):
         html_id = self._assign_label_to_tag(attrs)
@@ -224,8 +249,4 @@ class Form(object):
 class StubForm(Form):
     def __init__(self):
         Form.__init__(self, '', '', '', {}, '', {}, {})
-
-class FormContext(object):
-    def __init__(self, name):
-        self.name = name
 

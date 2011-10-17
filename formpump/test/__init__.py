@@ -1,3 +1,2 @@
-import unittest
-
-import jinjatests
+from jinjatests import *
+from makotests import *
