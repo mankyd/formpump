@@ -10,11 +10,8 @@ class JinjaPumpTests(base.FormPumpTests):
     def setUp(self):
         self.env = jinja2.Environment(extensions=[formpump.JinjaPump])
 
-    def run_template(self, tpl, strip_id=True, **kwargs):
-        tpl = self.env.from_string(tpl).render(**kwargs)
-        if strip_id:
-            return self.stripID(tpl)
-        return tpl
+    def run_template(self, tpl, **kwargs):
+        return self.env.from_string(tpl).render(**kwargs)
 
     def set_form_name_key(self, form_name_key):
         form_name_key, self.env.form_name_key = self.env.form_name_key, form_name_key

@@ -8,14 +8,9 @@ from formpump import makopump
 
 
 class MakoPumpTests(base.FormPumpTests):
-    def run_template(self, tpl, strip_id=True, **kwargs):
+    def run_template(self, tpl, **kwargs):
         tpl = '<%namespace name="fp" module="formpump.makopump" />' + tpl
-
-        tpl= Template(tpl)
-        tpl = tpl.render(**kwargs)
-        if strip_id:
-            return self.stripID(tpl)
-        return tpl
+        return Template(tpl).render(**kwargs)
 
     def set_form_name_key(self, form_name_key):
         return makopump.set_form_name_key(form_name_key)
