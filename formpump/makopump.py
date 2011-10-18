@@ -17,13 +17,17 @@ _mako_local.value_dict_name = 'form_vars'
 _mako_local.error_dict_name = 'form_errors'
 
 def set_form_name_key(name_key):
+    _name_key = _mako_local.name_key
     _mako_local.name_key = name_key
+    return _name_key
 
 def get_form_name_key():
     return _mako_local.name_key
 
 def set_form_ctx_key(ctx_key):
+    _ctx_key = _mako_local.ctx_key
     _mako_local.ctx_key = ctx_key
+    return _ctx_key
 
 def get_form_ctx_key():
     return _mako_local.ctx_key
