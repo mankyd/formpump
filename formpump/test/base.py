@@ -7,7 +7,6 @@ from formpump import makopump
 
 class FormPumpTests(unittest.TestCase):
     def setUp(self):
-        #self.env = jinja2.Environment(extensions=[formpump.JinjaPump])
         pass
 
     def stripID(self, val):
