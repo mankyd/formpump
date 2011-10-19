@@ -15,6 +15,7 @@ _mako_local.ctx_key = None
 _mako_local.default_form_action = None
 _mako_local.value_dict_name = 'form_vars'
 _mako_local.error_dict_name = 'form_errors'
+_mako_local.error_renderers = {}
 
 def set_form_name_key(name_key):
     _name_key = _mako_local.name_key
@@ -32,12 +33,21 @@ def set_form_ctx_key(ctx_key):
 def get_form_ctx_key():
     return _mako_local.ctx_key
 
+def add_error_renderer(name, callback):
+    _mako_local.error_renderers[name] = callback
+
+def remove_error_renderer(name):
+    _mako_local.error_renderers.pop(name, None)
+
 ## Tags
 def checkbox(context, **kwargs):
     return _mako_local.form.checkbox_tag(kwargs)
 
 def email(context, **kwargs):
     return _mako_local.form.email_tag(kwargs)
+
+def error(context, name, **kwargs):
+    return _mako_local.form.error_tag(name, kwargs, _mako_local.error_renderers)
 
 @supports_caller
 def form(context, **kwargs):

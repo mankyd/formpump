@@ -215,4 +215,4 @@ class JinjaPump(Extension):
         return nodes.Output([self.call_method('field_error_tag', args=[name, attrs])])
 
     def field_error_tag(self, name, attrs):
-        return self.form.error_tag(self, name, attrs, self.environment.error_renderers)
+        return self.form.error_tag(name, attrs, self.environment.error_renderers)

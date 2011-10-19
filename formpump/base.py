@@ -88,7 +88,7 @@ class Form(object):
     def end_tag(self):
         return '</form>'
 
-    def error_tag(self, attrs, error_renderers):
+    def error_tag(self, name, attrs, error_renderers):
         error = self.form_errors.get(self.name, {}).get(name, None)
         if not error:
             return ''
@@ -245,6 +245,13 @@ class Form(object):
             return for_id
 
         return None
+
+    def _default_error(self, message, attrs):
+        if 'class' in attrs:
+            attrs['class'] = 'error ' + attrs['class']
+        else:
+            attrs['class'] = 'error'
+        return self.build_tag('span', attrs, close=False, label=False) + message + '</span>'
 
 class StubForm(Form):
     def __init__(self):

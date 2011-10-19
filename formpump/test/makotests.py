@@ -18,6 +18,13 @@ class MakoPumpTests(base.FormPumpTests):
     def set_form_ctx_key(self, form_ctx_key):
         return makopump.set_form_ctx_key(form_ctx_key)
 
+    def add_renderer(self, name, callback):
+        makopump.add_error_renderer(name, callback)
+
+    def remove_renderer(self, name):
+        makopump.remove_error_renderer(name)
+
+
 class MakoPumpFormTests(MakoPumpTests, base.FormTests):
     def form(self):
         return '<%fp:form>ok</%fp:form>'
@@ -103,6 +110,16 @@ class MakoPumpLabelTests(MakoPumpTests, base.LabelTests):
 
     def label_match_back_multi(self):
         return '<%fp:form><%fp:text name="var" /><%fp:label name="var">ok</%fp:label><%fp:text name="var" /><%fp:label name="var">ok</%fp:label></%fp:form>'
+
+class MakoPumpErrorTests(MakoPumpTests, base.ErrorTests):
+    def error(self):
+        return '<%fp:form name="test"><%fp:error name="a" />ok</%fp:form>'
+
+    def multi_error(self):
+        return '<%fp:form name="test"><%fp:error name="a" />ok<%fp:error name="b" /></%fp:form>'
+
+    def error_renderer(self):
+        return '<%fp:form name="test"><%fp:error name="a" render="test" />ok</%fp:form>'
 
 if __name__ == "__main__":
     unittest.main()

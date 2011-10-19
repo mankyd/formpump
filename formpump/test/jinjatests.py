@@ -21,6 +21,12 @@ class JinjaPumpTests(base.FormPumpTests):
         form_ctx_key, self.env.form_ctx_key = self.env.form_ctx_key, form_ctx_key
         return form_ctx_key
 
+    def add_renderer(self, name, callback):
+        self.env.error_renderers[name] = callback
+
+    def remove_renderer(self, name):
+        self.env.error_renderers.pop(name, None)
+
 class JinjaPumpFormTests(JinjaPumpTests, base.FormTests):
     def form(self):
         return '{% form %}ok{% endform %}'
@@ -106,6 +112,16 @@ class JinjaPumpLabelTests(JinjaPumpTests, base.LabelTests):
 
     def label_match_back_multi(self):
         return '{% form %}{% text name="var" %}{% label name="var" %}ok{% endlabel %}{% text name="var" %}{% label name="var" %}ok{% endlabel %}{% endform %}'
+
+class JinjaPumpErrorTests(JinjaPumpTests, base.ErrorTests):
+    def error(self):
+        return '{% form "test" %}{% error "a" %}ok{% endform %}'
+
+    def multi_error(self):
+        return '{% form "test" %}{% error "a" %}ok{% error "b" %}{% endform %}'
+
+    def error_renderer(self):
+        return '{% form "test" %}{% error "a" render="test" %}ok{% endform %}'
 
 if __name__ == "__main__":
     unittest.main()

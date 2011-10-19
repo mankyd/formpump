@@ -231,6 +231,74 @@ class LabelTests(object):
                          tags[5]['attrs']['id'])
 
 
+class ErrorTests(object):
+    @skipIfUndef('error')
+    def test_error(self):
+        tpl = self._run_template(self.error())
+        self.assertHTMLEqual(tpl, '<form action="" method="post">ok</form>')
+
+        tpl = self._run_template(self.error(),
+                                 form_errors={'test': {'a': 'a'}}
+                                 )
+        self.assertHTMLEqual(tpl, '<form action="" method="post"><span class="error">a</span>ok</form>')
+
+    @skipIfUndef('multi_error')
+    def test_multi_error(self):
+        tpl = self._run_template(self.multi_error(),
+                                 form_errors={'test': {'a': 'a'}}
+                                 )
+        self.assertHTMLEqual(tpl, '<form action="" method="post"><span class="error">a</span>ok</form>')
+        tpl = self._run_template(self.multi_error(),
+                                 form_errors={'test': {'b': 'b'}}
+                                 )
+        self.assertHTMLEqual(tpl, '<form action="" method="post">ok<span class="error">b</span></form>')
+        tpl = self._run_template(self.multi_error(),
+                                 form_errors={'test': {'a': 'a', 'b':'b'}}
+                                 )
+        self.assertHTMLEqual(tpl, '<form action="" method="post"><span class="error">a</span>ok<span class="error">b</span></form>')
+        tpl = self._run_template(self.multi_error(),
+                                 form_errors={'test': {}}
+                                 )
+        self.assertHTMLEqual(tpl, '<form action="" method="post">ok</form>')
+
+    @skipIfUndef('error_renderer')
+    def test_error_renderer(self):
+        def renderer(error, attrs):
+            return '<div class="error">'+error+'</div>'
+
+        with self.assertRaises(ValueError):
+            tpl = self._run_template(self.error_renderer(),
+                                     form_errors={'test': {'a': 'a'}}
+                                     )
+        
+        self.add_renderer('test', renderer)
+        tpl = self._run_template(self.error_renderer(),
+                                 form_errors={'test': {'a': 'a'}}
+                                 )
+        self.assertHTMLEqual(tpl, '<form action="" method="post"><div class="error">a</div>ok</form>')
+        self.remove_renderer('test')
+
+        with self.assertRaises(ValueError):
+            tpl = self._run_template(self.error_renderer(),
+                                     form_errors={'test': {'a': 'a'}}
+                                     )
+
+    @skipIfUndef('error')
+    def test_default_error_renderer(self):
+        def renderer(error, attrs):
+            return '<div class="error">'+error+'</div>'
+
+        self.add_renderer('default', renderer)
+        tpl = self._run_template(self.error(),
+                                 form_errors={'test': {'a': 'a'}}
+                                 )
+        self.assertHTMLEqual(tpl, '<form action="" method="post"><div class="error">a</div>ok</form>')
+        self.remove_renderer('default')
+        tpl = self._run_template(self.error(),
+                                 form_errors={'test': {'a': 'a'}}
+                                 )
+        self.assertHTMLEqual(tpl, '<form action="" method="post"><span class="error">a</span>ok</form>')
+
 class HTMLQueueParser(HTMLParser):
     START_TAG    = 0
     END_TAG      = 1
