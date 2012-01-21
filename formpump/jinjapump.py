@@ -29,7 +29,7 @@ def pumpwidget(func):
 
 class JinjaPump(Extension):
     # a set of names that trigger the extension.
-    tags = set(['checkbox', 'email', 'error', 'form', 'form_ctx', 'hidden', 'label', 'password', 'quickselect', 'radio', 'submit', 'text', 'textarea'])
+    tags = set(['checkbox', 'email', 'error', 'file', 'form', 'form_ctx', 'hidden', 'iferror', 'label', 'password', 'quickselect', 'radio', 'submit', 'text', 'textarea'])
 
     def __init__(self, environment):
         Extension.__init__(self, environment)
@@ -56,10 +56,12 @@ class JinjaPump(Extension):
             return self._form(parser, tag)
         elif tag.value == 'form_ctx':
             return self._form_ctx(parser, tag)
-        elif tag.value in ( 'email', 'hidden', 'password', 'text'):
+        elif tag.value in ( 'email', 'file', 'hidden', 'password', 'text'):
             return self._input(parser, tag)
         elif tag.value == 'checkbox':
             return self._check(parser, tag)
+        elif tag.value == 'iferror':
+            return self._iferror(parser, tag)
         elif tag.value == 'radio':
             return self._radio(parser, tag)
         elif tag.value == 'submit':
@@ -151,6 +153,23 @@ class JinjaPump(Extension):
 
     def radio_tag(self, attrs):
         return self.form.radio_tag(attrs)
+
+    def _iferror(self, parser, tag):
+        name, attrs = self._parse_attrs(parser)
+        name = name or attrs.get('name', None)
+        if name is None:
+            raise ValueError('First argument of error tag must be a string')
+            
+        body = parser.parse_statements(['name:endiferror'], drop_needle=True)
+
+        return [nodes.CallBlock(self.call_method('_iferror_block', args=[name]),
+                                [], [], body).set_lineno(tag.lineno)]
+
+
+    def _iferror_block(self, attrs, caller):
+        if self.form.if_error(name):
+            return caller()
+        return ''
 
     def _submit(self, parser, tag):
         name, attrs = self._parse_attrs(parser)

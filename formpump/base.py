@@ -105,6 +105,10 @@ class Form(object):
 
         return renderer(error, attrs)
 
+    def file_tag(self, attrs):
+        attrs['type'] = 'file'
+        return self.input_tag(attrs)
+
     def hidden_tag(self, attrs):
         attrs['type'] = 'hidden'
         return self.input_tag(attrs)
@@ -112,6 +116,9 @@ class Form(object):
     def html_id(self):
         source = string.letters+string.digits
         return u''.join( [Random().sample(source, 1)[0] for x in range(0, 32)] )
+
+    def if_error(self, name):
+        return bool(self.form_errors.get(self.name, {}).get(name, None))
 
     def input_tag(self, attrs):
         html_id = self._assign_label_to_tag(attrs)
@@ -251,7 +258,7 @@ class Form(object):
             attrs['class'] = 'error ' + attrs['class']
         else:
             attrs['class'] = 'error'
-        return self.build_tag('span', attrs, close=False, label=False) + message + '</span>'
+        return self.build_tag('span', attrs, close=False, label=False) + unicode(message) + '</span>'
 
 class StubForm(Form):
     def __init__(self):
