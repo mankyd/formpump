@@ -40,7 +40,7 @@ class Form(object):
         for k,v in attrs.items():
             if k.endswith('_'):
                 k = k[:-1]
-            tag += ' %s="%s"' % (cgi.escape(k), cgi.escape(unicode(v if v is not None else '')))
+            tag += ' %s="%s"' % (cgi.escape(k.replace('_', '-')), cgi.escape(unicode(v if v is not None else '')))
 
         if close:
             return tag +' />'
