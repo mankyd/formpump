@@ -18,7 +18,7 @@
 
 import setuptools
 
-version = "0.1.2"
+version = "0.1.3"
 
 setuptools.setup(
     name="formpump",
@@ -26,8 +26,8 @@ setuptools.setup(
     packages = setuptools.find_packages(),
     author="Dave Mankoff",
     author_email="mankyd@gmail.com",
-    url="http://ohthehugemanatee.net/",
+    url="https://github.com/mankyd/formpump",
     download_url="",
     license="http://www.apache.org/licenses/LICENSE-2.0",
-    description="FormPump is a tool that integrates with popular templating engines, allowing you the cleanly fill in HTML forms",
+    description="FormPump is a tool that integrates with popular templating engines, allowing you to cleanly fill in HTML forms",
 )
