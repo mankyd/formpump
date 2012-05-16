@@ -89,6 +89,12 @@ def iferror(context, name):
     return ''
 
 @supports_caller
+def ifnoterror(context, name):
+    if _mako_settings.form.if_not_error(name):
+        context['caller'].body()
+    return ''
+
+@supports_caller
 def label(context, **kwargs):
     context.write(_mako_settings.form.label_tag(kwargs))
     context['caller'].body()

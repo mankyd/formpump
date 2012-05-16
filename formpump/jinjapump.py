@@ -29,7 +29,7 @@ def pumpwidget(func):
 
 class JinjaPump(Extension):
     # a set of names that trigger the extension.
-    tags = set(['checkbox', 'email', 'error', 'file', 'form', 'form_ctx', 'hidden', 'iferror', 'label', 'password', 'quickselect', 'radio', 'submit', 'text', 'textarea'])
+    tags = set(['checkbox', 'email', 'error', 'file', 'form', 'form_ctx', 'hidden', 'iferror', 'ifnoterror', 'label', 'password', 'quickselect', 'radio', 'submit', 'text', 'textarea'])
 
     def __init__(self, environment):
         Extension.__init__(self, environment)
@@ -62,6 +62,8 @@ class JinjaPump(Extension):
             return self._check(parser, tag)
         elif tag.value == 'iferror':
             return self._iferror(parser, tag)
+        elif tag.value == 'ifnoterror':
+            return self._ifnoterror(parser, tag)
         elif tag.value == 'radio':
             return self._radio(parser, tag)
         elif tag.value == 'submit':
@@ -158,23 +160,46 @@ class JinjaPump(Extension):
         name, attrs = self._parse_attrs(parser)
         name = name or attrs.get('name', None)
         if name is None:
-            raise ValueError('First argument of error tag must be a string')
+            raise ValueError('First argument of iferror tag must be a string')
             
-        body = parser.parse_statements(['name:endiferror'], drop_needle=True)
+        node = nodes.If()
+        node.test = self.call_method('_iferror_block', args=[name])
+        node.body = parser.parse_statements(('name:else', 'name:endiferror'))
+        token = next(parser.stream)
+        if token.test('name:else'):
+            node.else_ = parser.parse_statements(('name:endiferror',), drop_needle=True)
+        else:
+            node.else_ = []
 
-        return [nodes.CallBlock(self.call_method('_iferror_block', args=[name]),
-                                [], [], body).set_lineno(tag.lineno)]
+        return [node]
 
+    def _iferror_block(self, name):
+        return self.form.if_error(name)
 
-    def _iferror_block(self, attrs, caller):
-        if self.form.if_error(name):
-            return caller()
-        return ''
+    def _ifnoterror(self, parser, tag):
+        name, attrs = self._parse_attrs(parser)
+        name = name or attrs.get('name', None)
+        if name is None:
+            raise ValueError('First argument of ifnoterror tag must be a string')
+            
+        node = nodes.If()
+        node.test = self.call_method('_ifnoterror_block', args=[name])
+        node.body = parser.parse_statements(('name:else', 'name:endifnoterror'))
+        token = next(parser.stream)
+        if token.test('name:else'):
+            node.else_ = parser.parse_statements(('name:endifnoterror',), drop_needle=True)
+        else:
+            node.else_ = []
+
+        return [node]
+
+    def _ifnoterror_block(self, name):
+        return self.form.if_not_error(name)
 
     def _submit(self, parser, tag):
         name, attrs = self._parse_attrs(parser)
         if name is not None:
-            attrs['name'] = name
+            attrs['value'] = name
 
         attrs['type'] = nodes.Const(tag.value)
 

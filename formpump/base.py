@@ -6,9 +6,11 @@ from random import Random
 import string
 
 log = logging.getLogger('formpump')
+log.setLevel(logging.WARN)
 
 class Form(object):
     def __init__(self, name, name_key, ctx_key, attrs, default_action, form_vars, form_errors):
+        self.base_name = name
         self.name = name
         self.name_key = name_key
         self.ctx_key = ctx_key
@@ -120,6 +122,9 @@ class Form(object):
     def if_error(self, name):
         return bool(self.form_errors.get(self.name, {}).get(name, None))
 
+    def if_not_error(self, name):
+        return not bool(self.form_errors.get(self.name, {}).get(name, None))
+
     def input_tag(self, attrs):
         html_id = self._assign_label_to_tag(attrs)
         if html_id is not None:
@@ -150,7 +155,7 @@ class Form(object):
         return self.input_tag(attrs)
 
     def quick_select_tag(self, attrs):
-        options = attrs.pop('options', [])[:]
+        options = list(attrs.pop('options', []))[:]
         prompt = attrs.pop('prompt', None)
         name = attrs.get('name', None)
         error = self.form_errors.get(self.name, {}).get(name, None)
@@ -199,10 +204,10 @@ class Form(object):
     def start_tag(self):
         ret = self.build_tag('form', self.attrs, close=False)
 
-        if self.name is not None and self.name_key is not None:
+        if self.base_name is not None and self.name_key is not None:
             return ret + self.build_tag('input', {'type': 'hidden',
                                                   'name': self.name_key,
-                                                  'value': self.name}, label=False)
+                                                  'value': self.base_name}, label=False)
         return ret
 
     def text_tag(self, attrs):
