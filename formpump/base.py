@@ -66,7 +66,13 @@ class Form(object):
         true_values = ('1', 't', 'true', 'y', 'yes', 'on')
         if name is not None:
             value = self.form_vars.get(self.name, {}).get(name, '')
-            if value == attrs['value'] or unicode(value).lower() in true_values and unicode(attrs['value']).lower() in true_values:
+            is_list = isinstance(value, (list, tuple))
+            if is_list:
+                value = [unicode(x) for x in value]
+
+            if value == attrs['value'] or \
+                    (unicode(value).lower() in true_values and unicode(attrs['value']).lower() in true_values) or \
+                    (is_list and unicode(attrs.get('value', None)) in value):
                 attrs['checked'] = 'checked'
             else:
                 attrs.pop('checked', None)
@@ -170,9 +176,14 @@ class Form(object):
             options.insert(0, (None, prompt))
 
         value = self.form_vars.get(self.name, {}).get(name, '')
+        is_list = isinstance(value, (list, tuple))
+        if is_list:
+            value = [unicode(x) for x in value]
+
         for opt in options:
             attrs = {'value': opt[0]}
-            if unicode(value) == unicode(opt[0]):
+            if unicode(value) == unicode(opt[0]) or \
+                         (is_list and unicode(opt[0]) in value):
                 attrs['selected'] = 'selected'
             ret += self.build_tag('option', attrs, close=False) + cgi.escape(opt[1]) + '</option>'
 
@@ -183,7 +194,12 @@ class Form(object):
         name = attrs.get('name', None)
         if name is not None:
             value = self.form_vars.get(self.name, {}).get(name, '')
-            if value == attrs.get('value', None):
+            is_list = isinstance(value, (list, tuple))
+            if is_list:
+                value = [unicode(x) for x in value]
+
+            if value == attrs.get('value', None) or \
+                    (is_list and unicode(attrs.get('value', None)) in value):
                 attrs['checked'] = 'checked'
             else:
                 attrs.pop('checked', None)
