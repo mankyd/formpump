@@ -59,6 +59,14 @@ class Form(object):
 
         return ''
 
+    def _is_match(self, value, tag_value):
+        is_list = isinstance(value, (list, tuple))
+
+        if is_list:
+            return unicode(tag_value) in [unicode(x) for x in value]
+        else:
+            return unicode(value) == tag_value
+
     def checkbox_tag(self, attrs):
         attrs['type'] = 'checkbox'
         name = attrs.get('name', None)
@@ -66,7 +74,10 @@ class Form(object):
         true_values = ('1', 't', 'true', 'y', 'yes', 'on')
         if name is not None:
             value = self.form_vars.get(self.name, {}).get(name, '')
-            if value == attrs['value'] or unicode(value).lower() in true_values and unicode(attrs['value']).lower() in true_values:
+
+            if self._is_match(value, attrs['value']) or \
+                    (unicode(value).lower() in true_values and \
+                         unicode(attrs['value']).lower() in true_values):
                 attrs['checked'] = 'checked'
             else:
                 attrs.pop('checked', None)
@@ -170,9 +181,10 @@ class Form(object):
             options.insert(0, (None, prompt))
 
         value = self.form_vars.get(self.name, {}).get(name, '')
+
         for opt in options:
             attrs = {'value': opt[0]}
-            if unicode(value) == unicode(opt[0]):
+            if self._is_match(value, opt[0]):
                 attrs['selected'] = 'selected'
             ret += self.build_tag('option', attrs, close=False) + cgi.escape(opt[1]) + '</option>'
 
@@ -183,7 +195,7 @@ class Form(object):
         name = attrs.get('name', None)
         if name is not None:
             value = self.form_vars.get(self.name, {}).get(name, '')
-            if value == attrs.get('value', None):
+            if self._is_match(value, attrs.get('value', None)):
                 attrs['checked'] = 'checked'
             else:
                 attrs.pop('checked', None)
