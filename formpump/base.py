@@ -65,7 +65,7 @@ class Form(object):
         if is_list:
             return unicode(tag_value) in [unicode(x) for x in value]
         else:
-            return unicode(value) == tag_value
+            return unicode(value) == unicode(tag_value)
 
     def checkbox_tag(self, attrs):
         attrs['type'] = 'checkbox'
