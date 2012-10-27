@@ -38,15 +38,7 @@ class Form(object):
                 self.labeless_inputs[name].append(html_id)
             attrs['id'] = html_id
 
-        tag = '<' + cgi.escape(tag)
-        for k,v in attrs.items():
-            if k.endswith('_'):
-                k = k[:-1]
-            tag += ' %s="%s"' % (cgi.escape(k.replace('_', '-')), cgi.escape(unicode(v if v is not None else '')))
-
-        if close:
-            return tag +' />'
-        return tag + '>'
+	return build_tag(tag, attrs, close=close)
 
     def context_tag(self, attrs):
         self.name = attrs['name']
@@ -281,3 +273,13 @@ class StubForm(Form):
     def __init__(self):
         Form.__init__(self, '', '', '', {}, '', {}, {})
 
+def build_tag(tag, attrs, close=False):
+    tag = '<' + cgi.escape(tag)
+    for k,v in attrs.items():
+        if k.endswith('_'):
+            k = k[:-1]
+        tag += ' %s="%s"' % (cgi.escape(k.replace('_', '-')), cgi.escape(unicode(v if v is not None else '')))
+
+    if close:
+        return tag +' />'
+    return tag + '>'
