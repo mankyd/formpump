@@ -20,9 +20,9 @@ class Form(object):
         self.inputless_labels = {}
         self.labeless_inputs = {}
 
-        log.debug("Form Name: %s", self.name)
-        log.debug("Form Vars: %s", self.form_vars)
-        log.debug("Form Errors: %s", self.form_errors)
+        log.debug(u"Form Name: %s", self.name)
+        log.debug(u"Form Vars: %s", self.form_vars)
+        log.debug(u"Form Errors: %s", self.form_errors)
         self.attrs.setdefault('method', 'post')
         self.attrs.setdefault('action', default_action() if callable(default_action) else default_action)
 
@@ -104,7 +104,7 @@ class Form(object):
         else:
             renderer = error_renderers.get(attrs['render'])
         if renderer is None:
-            raise ValueError('Unknown error renderer: %s' % attrs['render'])
+            raise ValueError(u'Unknown error renderer: %s' % attrs['render'])
 
         attrs.pop('render', None)
 
@@ -234,7 +234,7 @@ class Form(object):
                 else:
                     attrs['class'] = 'error'
 
-        return '%s%s</textarea>' % (self.build_tag('textarea', attrs, close=False), cgi.escape(value or ''))
+        return u'{}{}</textarea>'.format(self.build_tag('textarea', attrs, close=False), cgi.escape(value or ''))
 
 
     def _assign_label_to_tag(self, attrs):
@@ -278,7 +278,7 @@ def build_tag(tag, attrs, close=False):
     for k,v in attrs.items():
         if k.endswith('_'):
             k = k[:-1]
-        tag += ' %s="%s"' % (cgi.escape(k.replace('_', '-')), cgi.escape(unicode(v if v is not None else '')))
+        tag += u' {}="{}"'.format(cgi.escape(k.replace('_', '-')), cgi.escape(unicode(v if v is not None else '')))
 
     if close:
         return tag +' />'
