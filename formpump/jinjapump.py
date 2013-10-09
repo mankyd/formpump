@@ -1,6 +1,7 @@
 "FormPump - It fills up forms"
 
 from jinja2 import Environment, environmentfunction, nodes
+from jinja2.utils import Markup
 from jinja2.ext import Extension
 
 from base import Form, StubForm
@@ -101,8 +102,13 @@ class JinjaPump(Extension):
         body = parser.parse_statements(['name:endform'], drop_needle=True)
 
         attrs = nodes.Dict([nodes.Pair(nodes.Const(k), v) for k,v in attrs.items()])
-        return [nodes.CallBlock(self.call_method('_form_block', args=[form_name, attrs, self._form_vars_node(), self._form_errors_node()]),
-                                [], [], body).set_lineno(tag.lineno)]
+
+        return nodes.CallBlock(
+            self.call_method('_form_block', 
+                                     args=[form_name, attrs, 
+                                           self._form_vars_node(), 
+                                           self._form_errors_node()]),
+                    [], [], body).set_lineno(tag.lineno)
 
     def _form_block(self, form_name, attrs, form_vars, form_errors, caller):
         form = Form(form_name, 
@@ -115,7 +121,7 @@ class JinjaPump(Extension):
         form, self.form = self.form, form
         ret = caller()
         form, self.form = self.form, form
-        return form.start_tag() + ret + form.end_tag()
+        return Markup(form.start_tag()) + ret + Markup(form.end_tag())
 
     def _form_ctx(self, parser, tag):
         name, attrs = self._parse_attrs(parser)
@@ -128,7 +134,7 @@ class JinjaPump(Extension):
         return nodes.Output([self.call_method('_switch_form_ctx', args=[attrs])])
 
     def _switch_form_ctx(self, attrs):
-        return self.form.context_tag(attrs)
+        return Markup(self.form.context_tag(attrs))
 
     def _input(self, parser, tag, method_name='input_tag'):
         name, attrs = self._parse_attrs(parser)
@@ -142,19 +148,19 @@ class JinjaPump(Extension):
         return nodes.Output([self.call_method(method_name, args=[attrs])])
 
     def input_tag(self, attrs):
-        return self.form.input_tag(attrs)
+        return Markup(self.form.input_tag(attrs))
 
     def _check(self, parser, tag):
         return self._input(parser, tag, method_name='checkbox_tag')
 
     def checkbox_tag(self, attrs):
-        return self.form.checkbox_tag(attrs)
+        return Markup(self.form.checkbox_tag(attrs))
 
     def _radio(self, parser, tag):
         return self._input(parser, tag, method_name='radio_tag')
 
     def radio_tag(self, attrs):
-        return self.form.radio_tag(attrs)
+        return Markup(self.form.radio_tag(attrs))
 
     def _iferror(self, parser, tag):
         name, attrs = self._parse_attrs(parser)
@@ -216,12 +222,12 @@ class JinjaPump(Extension):
         body = parser.parse_statements(['name:endlabel'], drop_needle=True)
         attrs = nodes.Dict([nodes.Pair(nodes.Const(k), v) for k,v in attrs.items()])
 
-        return [nodes.CallBlock(self.call_method('_label_block', args=[attrs]),
-                                [], [], body).set_lineno(tag.lineno)]
+        return nodes.CallBlock(self.call_method('_label_block', args=[attrs]),
+                               [], [], body).set_lineno(tag.lineno)
 
 
     def _label_block(self, attrs, caller):
-        return self.form.label_tag(attrs) + caller() + self.form.end_label_tag()
+        return Markup(self.form.label_tag(attrs)) + caller() + Markup(self.form.end_label_tag())
 
     def _quick_select(self, parser, tag):
         name, attrs = self._parse_attrs(parser)
@@ -230,10 +236,11 @@ class JinjaPump(Extension):
 
         attrs = nodes.Dict([nodes.Pair(nodes.Const(k), v) for k,v in attrs.items()])
 
-        return [nodes.Output([self.call_method('quick_select_tag', args=[attrs])])]
+        return nodes.Output([
+                self.call_method('quick_select_tag', args=[attrs])])
 
     def quick_select_tag(self, attrs):
-        return self.form.quick_select_tag(attrs)
+        return Markup(self.form.quick_select_tag(attrs))
 
     def _text_area(self, parser, tag):
         name, attrs = self._parse_attrs(parser)
@@ -241,10 +248,11 @@ class JinjaPump(Extension):
             attrs['name'] = name
 
         attrs = nodes.Dict([nodes.Pair(nodes.Const(k), v) for k,v in attrs.items()])
-        return [nodes.Output([self.call_method('text_area_tag', args=[attrs])])]
+        return nodes.Output([
+                self.call_method('text_area_tag', args=[attrs])])
 
     def text_area_tag(self, attrs):
-        return self.form.textarea_tag(attrs)
+        return Markup(self.form.textarea_tag(attrs))
 
     def _field_error(self, parser):
         name, attrs = self._parse_attrs(parser)
@@ -256,7 +264,8 @@ class JinjaPump(Extension):
 
         attrs = nodes.Dict([nodes.Pair(nodes.Const(k), v) for k,v in attrs.items()])
 
-        return nodes.Output([self.call_method('field_error_tag', args=[name, attrs])])
+        return nodes.Output([
+                self.call_method('field_error_tag', args=[name, attrs])])
 
     def field_error_tag(self, name, attrs):
-        return self.form.error_tag(name, attrs, self.environment.error_renderers)
+        return Markup(self.form.error_tag(name, attrs, self.environment.error_renderers))
